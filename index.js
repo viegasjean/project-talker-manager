@@ -72,7 +72,7 @@ const validatePerson = (req, res, next) => {
 
 const validateTalk = (req, res, next) => {
   const { talk } = req.body;
-  if (!talk || !talk.watchedAt || !talk.rate) {
+  if (!talk || !talk.watchedAt || typeof talk.rate === 'undefined') {
     return res
       .status(400)
       .json({
@@ -84,7 +84,7 @@ const validateTalk = (req, res, next) => {
 
 const validateRateAndWatchedAt = (req, res, next) => {
   const { talk } = req.body;
-  if (talk.rate < 0 || talk.rate > 5) {
+  if (talk.rate < 1 || talk.rate > 5) {
     return res
     .status(400)
     .json({
@@ -113,6 +113,19 @@ app.post('/talker',
   fs.writeFileSync('talker.json', JSON.stringify(talkers), 'utf8');
 
   return res.status(201).json(talker);
+});
+
+app.put('/talker/:id',
+  authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
+  const { id } = req.params;
+  const talkerIndex = talkers.findIndex((talker) => talker.id === Number(id));
+  talkers[talkerIndex] = {
+    ...talkers[talkerIndex],
+    ...req.body,
+  };
+  fs.writeFileSync('talker.json', JSON.stringify(talkers), 'utf8');
+
+  return res.status(200).json(talkers[talkerIndex]);
 });
 
 app.listen(PORT, () => {
