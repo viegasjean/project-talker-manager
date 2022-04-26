@@ -103,7 +103,8 @@ const validateRateAndWatchedAt = (req, res, next) => {
   next();
 };
 
-app.post('/talker', authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
+app.post('/talker',
+  authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
   const talker = {
     id: talkers[talkers.length - 1].id + 1,
     ...req.body,
