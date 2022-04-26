@@ -11,6 +11,7 @@ const HTTP_OK_STATUS = 200;
 const PORT = '3000';
 
 const REGEXEMAIL = /\S+@\S+\.\S+/;
+const REGEXDATA = /^(0[1-9]|1\d|2\d|3[01])\/(0[1-9]|1[0-2])\/(19|20)\d{2}$/;
 
 // não remova esse endpoint, e para o avaliador funcionar
 app.get('/', (_request, response) => {
@@ -20,7 +21,7 @@ app.get('/', (_request, response) => {
 const talkers = JSON.parse(fs.readFileSync('talker.json', 'utf8'));
 
 // 1 - Crie o endpoint GET /talker
-app.get('/talker', (req, res) => res.status(200).json(talkers));
+app.get('/talker', (_req, res) => res.status(200).json(talkers));
 
 // 2 - Crie o endpoint GET /talker/:id
 app.get('/talker/:id', (req, res) => {
@@ -71,7 +72,7 @@ const validatePerson = (req, res, next) => {
 
 const validateTalk = (req, res, next) => {
   const { talk } = req.body;
-  if (!talk || talk.watchedAt || talk.rate) {
+  if (!talk || !talk.watchedAt || !talk.rate) {
     return res
       .status(400)
       .json({
@@ -91,12 +92,26 @@ const validateRateAndWatchedAt = (req, res, next) => {
     });
   }
 
+  if (!REGEXDATA.test(talk.watchedAt)) {
+    return res
+    .status(400)
+    .json({
+      message: 'O campo "watchedAt" deve ter o formato "dd/mm/aaaa"',
+    });
+  }
+
   next();
 };
 
 app.post('/talker', authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
+  const talker = {
+    id: talkers[talkers.length - 1].id + 1,
+    ...req.body,
+  };
+  talkers.push(talker);
   fs.writeFileSync('talker.json', JSON.stringify(talkers), 'utf8');
-  return res.status(200).json(req.body);
+
+  return res.status(201).json(talker);
 });
 
 app.listen(PORT, () => {
