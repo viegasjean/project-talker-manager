@@ -18,17 +18,12 @@ app.get('/', (_request, response) => {
   response.status(HTTP_OK_STATUS).send();
 });
 
-const talkers = JSON.parse(fs.readFileSync('talker.json', 'utf8'));
+const readFile = () => JSON.parse(fs.readFileSync('talker.json', 'utf8'));
 
 // 1 - Crie o endpoint GET /talker
-app.get('/talker', (_req, res) => res.status(200).json(talkers));
-
-// 2 - Crie o endpoint GET /talker/:id
-app.get('/talker/:id', (req, res) => {
-  const { id } = req.params;
-  const talker = talkers.find((elem) => elem.id === Number(id));
-  if (talker) return res.status(200).json(talker);
-  return res.status(404).json({ message: 'Pessoa palestrante não encontrada' });
+app.get('/talker', (req, res) => {
+  const talkers = readFile();
+  return res.status(200).json(talkers);
 });
 
 // 3 - Crie o endpoint POST /login
@@ -105,6 +100,7 @@ const validateRateAndWatchedAt = (req, res, next) => {
 
 app.post('/talker',
   authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
+  const talkers = readFile();
   const talker = {
     id: talkers[talkers.length - 1].id + 1,
     ...req.body,
@@ -118,6 +114,7 @@ app.post('/talker',
 app.put('/talker/:id',
   authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
   const { id } = req.params;
+  const talkers = readFile();
   const talkerIndex = talkers.findIndex((talker) => talker.id === Number(id));
   talkers[talkerIndex] = {
     ...talkers[talkerIndex],
@@ -126,6 +123,33 @@ app.put('/talker/:id',
   fs.writeFileSync('talker.json', JSON.stringify(talkers), 'utf8');
 
   return res.status(200).json(talkers[talkerIndex]);
+});
+
+app.delete('/talker/:id',
+  authenticate, (req, res) => {
+  const { id } = req.params;
+  const talkers = readFile();
+  const talkerIndex = talkers.findIndex((talker) => talker.id === Number(id));
+  talkers.splice(talkerIndex, 1);
+  fs.writeFileSync('talker.json', JSON.stringify(talkers), 'utf8');
+
+  return res.status(204).json();
+});
+
+app.get('/talker/search', authenticate, (req, res) => {
+  const { q } = req.query;
+  const talkers = readFile();
+  const filtered = talkers.filter((talker) => talker.name.includes(q));
+  return res.status(200).json(filtered);
+});
+
+// 2 - Crie o endpoint GET /talker/:id
+app.get('/talker/:id', (req, res) => {
+  const { id } = req.params;
+  const talkers = readFile();
+  const talker = talkers.find((elem) => elem.id === Number(id));
+  if (!talker) return res.status(404).json({ message: 'Pessoa palestrante não encontrada' });
+  return res.status(200).json(talker);
 });
 
 app.listen(PORT, () => {
