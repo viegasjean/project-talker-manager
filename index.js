@@ -10,8 +10,7 @@ const crypto = require('crypto');
 const HTTP_OK_STATUS = 200;
 const PORT = '3000';
 
-const REGEXEMAIL = /\S+@\S+\.\S+/;
-const REGEXDATA = /^(0[1-9]|1\d|2\d|3[01])\/(0[1-9]|1[0-2])\/(19|20)\d{2}$/;
+const { userSchema, tokenSchema, talkerSchema } = require('./schema');
 
 // não remova esse endpoint, e para o avaliador funcionar
 app.get('/', (_request, response) => {
@@ -31,75 +30,27 @@ app.get('/talker', (req, res) => {
 app.post('/login', (req, res) => {
   const { email, password } = req.body;
   const token = crypto.randomBytes(8).toString('hex');
-
-  if (!email) return res.status(400).json({ message: 'O campo "email" é obrigatório' });
-  if (!password) return res.status(400).json({ message: 'O campo "password" é obrigatório' });
-  if (!REGEXEMAIL.test(email)) {
-    return res.status(400).json({ message: 'O "email" deve ter o formato "email@email.com"' });
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ message: 'O "password" deve ter pelo menos 6 caracteres' });
-  }
+  const { error } = userSchema.validate({ email, password });
+  if (error) return res.status(400).json({ message: error.message });
   return res.status(200).json({ token });
 });
 
 const authenticate = (req, res, next) => {
   const { authorization } = req.headers;
-  if (!authorization) return res.status(401).json({ message: 'Token não encontrado' });
-  if (authorization.length < 16) return res.status(401).json({ message: 'Token inválido' });
+  const { error } = tokenSchema.validate({ authorization });
+  if (error) return res.status(401).json({ message: error.message });
   next();
 };
 
-const validatePerson = (req, res, next) => {
-  const { name, age } = req.body;
-  if (!name) return res.status(400).json({ message: 'O campo "name" é obrigatório' });
-  if (name.length < 3) {
-    return res.status(400).json({ message: 'O "name" deve ter pelo menos 3 caracteres' });
-  }
-
-  if (!age) return res.status(400).json({ message: 'O campo "age" é obrigatório' });
-  if (Number(age) < 18) {
-    return res.status(400).json({ message: 'A pessoa palestrante deve ser maior de idade' });
-  }
-
-  next();
-};
-
-const validateTalk = (req, res, next) => {
-  const { talk } = req.body;
-  if (!talk || !talk.watchedAt || typeof talk.rate === 'undefined') {
-    return res
-      .status(400)
-      .json({
-        message: 'O campo "talk" é obrigatório e "watchedAt" e "rate" não podem ser vazios',
-      });
-  }
-  next();
-};
-
-const validateRateAndWatchedAt = (req, res, next) => {
-  const { talk } = req.body;
-  if (talk.rate < 1 || talk.rate > 5) {
-    return res
-    .status(400)
-    .json({
-      message: 'O campo "rate" deve ser um inteiro de 1 à 5',
-    });
-  }
-
-  if (!REGEXDATA.test(talk.watchedAt)) {
-    return res
-    .status(400)
-    .json({
-      message: 'O campo "watchedAt" deve ter o formato "dd/mm/aaaa"',
-    });
-  }
-
+const validateTalkerInfo = (req, res, next) => {
+  const { name, age, talk } = req.body;
+  const { error } = talkerSchema.validate({ name, age, talk });
+  if (error) return res.status(400).json({ message: error.message });
   next();
 };
 
 app.post('/talker',
-  authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
+  authenticate, validateTalkerInfo, (req, res) => {
   const talkers = readFile();
   const talker = {
     id: talkers[talkers.length - 1].id + 1,
@@ -112,7 +63,7 @@ app.post('/talker',
 });
 
 app.put('/talker/:id',
-  authenticate, validatePerson, validateTalk, validateRateAndWatchedAt, (req, res) => {
+  authenticate, validateTalkerInfo, (req, res) => {
   const { id } = req.params;
   const talkers = readFile();
   const talkerIndex = talkers.findIndex((talker) => talker.id === Number(id));
